@@ -20,6 +20,6 @@ require (
 	github.com/sfreiberg/simplessh v0.0.0-20220719182921-185eafd40485
 	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1 // indirect
+	golang.org/x/sys v0.1.0 // indirect
 	periph.io/x/conn/v3 v3.7.0
 )
