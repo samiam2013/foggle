@@ -17,3 +17,6 @@
 # Don't save the environment variables
 .env
 **/.env
+
+# Don't track the logs, those are just for debugging
+logs/**.log
