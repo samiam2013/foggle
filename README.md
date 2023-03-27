@@ -15,7 +15,7 @@ I seem to need to have the server reboot on power restored and then configure th
 I have a 20ah lithum phosphate battery that just sits doing nothing and has for a year or longer. I also have a raspberry pi that I use to play with sensors (atmospheric data, movment sensor, etc.) I also have a relay and a USB power brick and so I thought, why not just use the pi to monitor the power and when it comes back on, turn on the server? 
 
 ### Hardware setup
-The pin reading a signal is GPIO27, used for 3.3v digital read it's connected through the relay to ground on one of the ground pins. It's on the "normally closed" pin and the relay is triggered by power being available, so when the power is available it's sends a "high" signal. The relay is only in place because I did not want to squeeze a volage divider onto an already overcrowded breadboard.
+The pin reading a signal is GPIO27, used for 3.3v digital read it's connected through the relay to ground on one of the ground pins. It's on the "normally closed" pin and the relay is triggered by power being available, so when the power is available it's sends a "low" signal. The relay is only in place because I did not want to squeeze a volage divider onto an already overcrowded breadboard.
 
 ### Software setup
 When power is restored, the code runs through a series of checks and actions. 
