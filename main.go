@@ -69,10 +69,8 @@ func main() {
 func bootIfNotRunning(httpHost, user, pass, idracHost string) {
 	resp, err := http.Get(httpHost)
 	if err != nil {
-		log.Println("error: ", err)
-		return
-	}
-	if resp.StatusCode == 200 {
+		log.Println("No http response; error: ", err, "(expected)")
+	} else if resp.StatusCode == 200 {
 		log.Println("already running")
 		return
 	}
