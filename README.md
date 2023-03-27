@@ -30,7 +30,7 @@ The server itself runs a discord bot that can alert me to power being restored b
 * don't use this code, use a separate 12v source to drive the network equipment and just let the UPS power cycle to reboot the server.
 * don't use the pi, use a microcontroller with network capability like an ESP32 that isn't 150$.
 * don't use a relay, build a voltage divider to drop from 5v to 3.3v and use the pi's GPIO pins directly.
-* don't use a relay, use a transistor to switch the power to the server directly.
+* don't use a relay, use a transistor instead
 * don't electrically couple to anything except the USB power running the pi, use an optocoupler to read the signal indirectly instead
 * get an enterprise grade UPS that can be last long enough or has a network interface to reboot the server.
 
