@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -21,24 +22,30 @@ func main() {
 		log.Fatalf("Error loading .env file: %v", err)
 	}
 
-	httpHost := os.Getenv("HTTP_HOST")
-	idracUser := os.Getenv("IDRAC_USER")
-	idracPass := os.Getenv("IDRAC_PASS")
-	idracHost := os.Getenv("IDRAC_HOST")
-	if httpHost == "" || idracUser == "" || idracPass == "" || idracHost == "" {
-		log.Fatal("missing env vars, (IDRAC|HTTP)_HOST, IDRAC_(USER|PASS) must be set")
+	config := map[string]string{
+		"HTTP_HOST":  "",
+		"IDRAC_USER": "",
+		"IDRAC_PASS": "",
+		"IDRAC_HOST": "",
+		"GPIO_PIN":   "",
+	}
+	for param, _ := range config {
+		v := os.Getenv(param)
+		if v == "" {
+			log.Fatalf("Missing config param: %s", param)
+		}
+		config[param] = v
 	}
 
-	// Load all the drivers:
+	// Load all the periphio drivers:
 	if _, err := host.Init(); err != nil {
 		log.Fatal(err)
 	}
 
 	// Lookup a pin by its number:
-	pName := "GPIO27"
-	p := gpioreg.ByName(pName)
+	p := gpioreg.ByName(config["GPIO_PIN"])
 	if p == nil {
-		log.Fatal("Failed to find", pName)
+		log.Fatal("Failed to find", config["GPIO_PIN"])
 	}
 
 	log.Printf("%s: %s\n", p, p.(pin.PinFunc).Func())
@@ -49,25 +56,28 @@ func main() {
 	}
 
 	// Wait for edges as detected by the hardware, and print the value read:
-	lastSignal := gpio.Low
+	lastSignal := p.Read()
 	for {
-		p.WaitForEdge(-1)
+		_ = p.WaitForEdge(-1)
 		res := p.Read()
-		if res != lastSignal {
-			log.Printf("triggered %s %s\n", res.String(),
-				time.Now().Format(time.RFC3339))
-			if res == gpio.Low {
-				bootIfNotRunning(httpHost, idracUser, idracPass, idracHost)
-			}
-			lastSignal = res
-			// de-bounce
-			time.Sleep(1 * time.Second)
+		if res == lastSignal {
+			// the signal was the same, so ignore it
+			continue
 		}
+		lastSignal = res
+
+		log.Printf("triggered %s %s\n", res.String(), time.Now().
+			Format(time.RFC3339))
+		if res == gpio.Low {
+			bootIfNotRunning(config)
+		}
+		// de-bounce the signal, a relay is slow compared to the sample rate
+		time.Sleep(1 * time.Second)
 	}
 }
 
-func bootIfNotRunning(httpHost, user, pass, idracHost string) {
-	resp, err := http.Get(httpHost)
+func bootIfNotRunning(config map[string]string) {
+	resp, err := http.Get(config["HTTP_HOST"])
 	if err != nil {
 		log.Println("No http response; error: ", err, "(expected)")
 	} else if resp.StatusCode == 200 {
@@ -76,13 +86,44 @@ func bootIfNotRunning(httpHost, user, pass, idracHost string) {
 	}
 
 	// if not, ping the lifcycle controller until it responds
+	if err := pingOrTimeout(config["IDRAC_HOST"], 5*time.Minute); err != nil {
+		log.Println("No ping response; error: ", err)
+		return
+	}
+
+	// then log into the lifecycle controller and reboot
+	client, err := simplessh.ConnectWithPassword(
+		config["IDRAC_HOST"], config["IDRAC_USER"], config["IDRAC_PASS"])
+	if err != nil {
+		log.Fatalf("Failed to dial ssh to idrac: %v", err)
+	}
+	defer client.Close()
+
+	// Now run the commands on the remote machine:
+	b, err := client.Exec("racadm getsysinfo")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if !powerStatusOff(b) {
+		log.Print("Already powered on")
+		return
+	}
+	log.Println("Powering on")
+	_, err = client.Exec("racadm serveraction powerup")
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func pingOrTimeout(host string, timeout time.Duration) error {
 	firstPing := time.Now()
 	for {
-		if time.Since(firstPing) > 5*time.Minute {
+		if time.Since(firstPing) > timeout {
 			log.Println("timed out waiting for ping response")
-			return
+			return fmt.Errorf("timed out waiting for ping response")
 		}
-		pinger, err := ping.NewPinger(idracHost)
+		pinger, err := ping.NewPinger(host)
 		if err != nil {
 			log.Println("No ping response; error: ", err, "waiting 1s")
 			time.Sleep(1 * time.Second)
@@ -95,33 +136,8 @@ func bootIfNotRunning(httpHost, user, pass, idracHost string) {
 			continue
 		}
 		log.Printf("ping statistics: %+v", pinger.Statistics())
-		break
+		return nil
 	}
-
-	// then log into the lifecycle controller and reboot
-	log.Println("rebooting")
-	client, err := simplessh.ConnectWithPassword(idracHost, user, pass)
-	if err != nil {
-		log.Fatalf("Failed to dial ssh to idrac: %v", err)
-	}
-
-	defer client.Close()
-
-	// Now run the commands on the remote machine:
-	b, err := client.Exec("racadm getsysinfo")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if powerStatusOff(b) {
-		log.Println("powering on")
-		_, err = client.Exec("racadm serveraction powerup")
-		if err != nil {
-			log.Fatal(err)
-		}
-		return
-	}
-	log.Print("already powered on")
 }
 
 func powerStatusOff(b []byte) bool {
