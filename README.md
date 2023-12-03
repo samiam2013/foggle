@@ -3,7 +3,7 @@
 ## What is Foggle?
 
 ### Background
-Foggle is short for fog-toggle. My home server is named fog, because it's the power of a large cloud server but at home. It's Dell R720 that used to run esxli for a big denim jeans brank you probably know well.
+Foggle is short for fog-toggle. My home server is named fog, because it's the power of a large cloud server but at home. It's Dell R720 that used to run esxli for a big denim jeans brand you probably know well.
 
 ### The Problem
 The problem with fog isn't actually it's fault. I use a residential grade UPS for both my mac mini and that server, with it getting the version with USB. I have apcusbd (APC's usb control daemon) set up and when the power goes out, the server gets the command to shut down. Works fine, but looking into how to get it to reboot seems like the road to madness.
